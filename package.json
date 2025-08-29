@@ -1,0 +1,59 @@
+{
+  "name": "compliance-management-saas",
+  "version": "1.0.0",
+  "description": "Multi-tenant SaaS platform for Indian CS/CA SME firms to manage compliance tasks",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@compliance/api",
+    "dev:web": "npm run dev --workspace=@compliance/web",
+    "build": "npm run build --workspaces",
+    "build:api": "npm run build --workspace=@compliance/api",
+    "build:web": "npm run build --workspace=@compliance/web",
+    "test": "npm run test --workspaces",
+    "test:api": "npm run test --workspace=@compliance/api",
+    "test:web": "npm run test --workspace=@compliance/web",
+    "test:e2e": "npm run test:e2e --workspace=@compliance/web",
+    "lint": "npm run lint --workspaces",
+    "lint:fix": "npm run lint:fix --workspaces",
+    "db:generate": "npm run db:generate --workspace=@compliance/database",
+    "db:migrate": "npm run db:migrate --workspace=@compliance/database",
+    "db:seed": "npm run db:seed --workspace=@compliance/database",
+    "db:reset": "npm run db:reset --workspace=@compliance/database",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "compliance",
+    "saas",
+    "multi-tenant",
+    "indian-regulations",
+    "cs",
+    "ca",
+    "gst",
+    "tds",
+    "roc",
+    "itr"
+  ],
+  "author": "Compliance Management Team",
+  "license": "MIT"
+}

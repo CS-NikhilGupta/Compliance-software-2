@@ -1,0 +1,25 @@
+{
+  "name": "@compliance/database",
+  "version": "1.0.0",
+  "description": "Database schema, migrations, and utilities for Compliance Management SaaS",
+  "main": "index.js",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "tsx src/seed.ts",
+    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "db:studio": "prisma studio",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.7.0",
+    "bcryptjs": "^2.4.3",
+    "faker": "^6.6.6"
+  },
+  "devDependencies": {
+    "prisma": "^5.7.0",
+    "tsx": "^4.6.0",
+    "@types/bcryptjs": "^2.4.6"
+  }
+}

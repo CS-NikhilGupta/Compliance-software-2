@@ -1,0 +1,861 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE TENANT & USER MANAGEMENT
+// ============================================================================
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?  @unique
+  logo        String?
+  address     Json?    // Business address
+  phone       String?
+  email       String?
+  gstNumber   String?  @unique
+  panNumber   String?  @unique
+  
+  // Subscription & Billing
+  planType    PlanType @default(STARTER)
+  planExpiry  DateTime?
+  isActive    Boolean  @default(true)
+  
+  // Settings
+  settings    Json?    // Tenant-specific configurations
+  timezone    String   @default("Asia/Kolkata")
+  currency    String   @default("INR")
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  users       User[]
+  clients     Client[]
+  entities    Entity[]
+  tasks       Task[]
+  documents   Document[]
+  notifications Notification[]
+  auditLogs   AuditLog[]
+  invitations Invitation[]
+  subscriptions Subscription[]
+  usageCounters UsageCounter[]
+  
+  @@map("tenants")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  tenantId    String
+  email       String   @unique
+  phone       String?
+  firstName   String
+  lastName    String
+  avatar      String?
+  
+  // Authentication
+  password    String
+  isEmailVerified Boolean @default(false)
+  isPhoneVerified Boolean @default(false)
+  lastLoginAt DateTime?
+  failedLoginAttempts Int @default(0)
+  lockedUntil DateTime?
+  
+  // Profile
+  designation String?
+  department  String?
+  employeeId  String?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles       UserRole[]
+  assignedTasks Task[] @relation("TaskAssignee")
+  createdTasks Task[] @relation("TaskCreator")
+  comments    TaskComment[]
+  documents   Document[]
+  auditLogs   AuditLog[]
+  notifications Notification[]
+  
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions Json     // Array of permission strings
+  isSystem    Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userRoles   UserRole[]
+  
+  @@map("roles")
+}
+
+model UserRole {
+  id       String @id @default(cuid())
+  userId   String
+  roleId   String
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Invitation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  email       String
+  roleId      String
+  invitedBy   String
+  token       String   @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@map("invitations")
+}
+
+// ============================================================================
+// CLIENT & ENTITY MANAGEMENT
+// ============================================================================
+
+model Client {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        ClientType @default(INDIVIDUAL)
+  
+  // Contact Information
+  email       String?
+  phone       String?
+  address     Json?
+  
+  // Business Details
+  gstNumber   String?
+  panNumber   String?
+  cinNumber   String?
+  udyamNumber String?
+  
+  // KYC Documents
+  kycStatus   KycStatus @default(PENDING)
+  kycDocuments Json?
+  
+  // Portal Access
+  hasPortalAccess Boolean @default(false)
+  portalPassword  String?
+  lastPortalLogin DateTime?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entities    Entity[]
+  contacts    Contact[]
+  tasks       Task[]
+  documents   Document[]
+  
+  @@map("clients")
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String
+  designation String?
+  email       String?
+  phone       String?
+  isPrimary   Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  @@map("contacts")
+}
+
+model Entity {
+  id          String   @id @default(cuid())
+  tenantId    String
+  clientId    String
+  
+  // Basic Information
+  legalName   String
+  tradeName   String?
+  entityType  EntityType
+  
+  // Registration Details
+  cinNumber   String?  @unique
+  gstNumber   String?  @unique
+  panNumber   String?  @unique
+  tanNumber   String?  @unique
+  
+  // Incorporation Details
+  incorporationDate DateTime?
+  registeredAddress Json?
+  businessAddress   Json?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  entityCompliances EntityCompliance[]
+  
+  @@map("entities")
+}
+
+// ============================================================================
+// COMPLIANCE CATALOG & RULES
+// ============================================================================
+
+model Compliance {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    ComplianceCategory
+  subCategory String?
+  
+  // Legal Details
+  actName     String
+  sectionNumber String?
+  formNumber  String?
+  
+  // Applicability
+  entityTypes EntityType[]
+  turnoverThreshold Decimal?
+  employeeThreshold Int?
+  
+  // Due Date Rules
+  periodicity Periodicity
+  dueDateRule Json     // Complex due date calculation rules
+  
+  // Penalties & Consequences
+  penaltyStructure Json?
+  consequences     String?
+  
+  // Documents Required
+  documentsRequired Json?
+  
+  // External Links
+  governmentPortal String?
+  helpLinks       Json?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  entityCompliances EntityCompliance[]
+  tasks       Task[]
+  
+  @@map("compliances")
+}
+
+model EntityCompliance {
+  id          String   @id @default(cuid())
+  entityId    String
+  complianceId String
+  
+  // Custom Settings
+  isApplicable Boolean @default(true)
+  customDueDate DateTime?
+  notes       String?
+  
+  // Override Settings
+  assigneeId  String?
+  priority    Priority @default(MEDIUM)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  entity      Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  compliance  Compliance @relation(fields: [complianceId], references: [id], onDelete: Cascade)
+  
+  @@unique([entityId, complianceId])
+  @@map("entity_compliances")
+}
+
+// ============================================================================
+// TASK MANAGEMENT & WORKFLOW
+// ============================================================================
+
+model Task {
+  id          String   @id @default(cuid())
+  tenantId    String
+  clientId    String?
+  entityId    String?
+  complianceId String?
+  
+  // Basic Information
+  title       String
+  description String?
+  type        TaskType @default(COMPLIANCE)
+  
+  // Scheduling
+  dueDate     DateTime
+  startDate   DateTime?
+  completedAt DateTime?
+  
+  // Status & Priority
+  status      TaskStatus @default(PLANNED)
+  priority    Priority @default(MEDIUM)
+  
+  // Assignment
+  assigneeId  String?
+  createdBy   String
+  
+  // Workflow
+  approvalRequired Boolean @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+  
+  // SLA Tracking
+  slaHours    Int?
+  slaBreached Boolean @default(false)
+  
+  // Recurrence
+  isRecurring Boolean @default(false)
+  recurrenceRule Json?
+  parentTaskId String?
+  
+  // Metadata
+  tags        String[]
+  customFields Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  entity      Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  compliance  Compliance? @relation(fields: [complianceId], references: [id], onDelete: SetNull)
+  assignee    User? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator     User @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  
+  checklists  TaskChecklist[]
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+  timeEntries TimeEntry[]
+  
+  @@map("tasks")
+}
+
+model TaskChecklist {
+  id          String   @id @default(cuid())
+  taskId      String
+  title       String
+  description String?
+  isCompleted Boolean  @default(false)
+  completedBy String?
+  completedAt DateTime?
+  order       Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@map("task_checklists")
+}
+
+model TaskComment {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  content     String
+  mentions    String[] // User IDs mentioned in comment
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id          String   @id @default(cuid())
+  taskId      String
+  documentId  String
+  
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  @@map("task_attachments")
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  description String?
+  hours       Decimal
+  date        DateTime @default(now())
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@map("time_entries")
+}
+
+// ============================================================================
+// DOCUMENT MANAGEMENT
+// ============================================================================
+
+model Document {
+  id          String   @id @default(cuid())
+  tenantId    String
+  clientId    String?
+  userId      String
+  
+  // File Information
+  name        String
+  originalName String
+  mimeType    String
+  size        Int
+  path        String
+  
+  // Versioning
+  version     Int      @default(1)
+  parentId    String?  // For versioning
+  
+  // Categorization
+  category    DocumentCategory
+  tags        String[]
+  
+  // Access Control
+  isPublic    Boolean  @default(false)
+  accessLevel AccessLevel @default(PRIVATE)
+  
+  // Metadata
+  description String?
+  uploadedAt  DateTime @default(now())
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  uploader    User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  
+  taskAttachments TaskAttachment[]
+  versions    Document[] @relation("DocumentVersions")
+  parent      Document? @relation("DocumentVersions", fields: [parentId], references: [id])
+  
+  @@map("documents")
+}
+
+// ============================================================================
+// NOTIFICATION SYSTEM
+// ============================================================================
+
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  type        NotificationType
+  channel     NotificationChannel
+  
+  // Template Content
+  subject     String?
+  body        String
+  variables   Json     // Available template variables
+  
+  // Settings
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  notifications Notification[]
+  
+  @@map("notification_templates")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  templateId  String?
+  
+  // Content
+  title       String
+  message     String
+  channel     NotificationChannel
+  
+  // Delivery
+  recipient   String   // Email, phone, or user ID
+  status      NotificationStatus @default(PENDING)
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  failureReason String?
+  
+  // Context
+  entityType  String?  // task, client, entity, etc.
+  entityId    String?
+  
+  // Metadata
+  metadata    Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  template    NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  
+  @@map("notifications")
+}
+
+// ============================================================================
+// AUDIT & SECURITY
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  
+  // Action Details
+  action      String
+  entityType  String
+  entityId    String?
+  
+  // Request Context
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  
+  // Changes
+  oldValues   Json?
+  newValues   Json?
+  
+  // Metadata
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// BILLING & SUBSCRIPTIONS (Phase 2 Scaffold)
+// ============================================================================
+
+model Subscription {
+  id          String   @id @default(cuid())
+  tenantId    String
+  planType    PlanType
+  status      SubscriptionStatus @default(ACTIVE)
+  
+  // Billing
+  amount      Decimal
+  currency    String   @default("INR")
+  billingCycle BillingCycle @default(MONTHLY)
+  
+  // Dates
+  startDate   DateTime
+  endDate     DateTime?
+  nextBillingDate DateTime?
+  
+  // Payment
+  paymentMethod String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
+  
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  subscriptionId String
+  invoiceNumber String @unique
+  
+  // Amounts
+  subtotal    Decimal
+  tax         Decimal  @default(0)
+  total       Decimal
+  currency    String   @default("INR")
+  
+  // Status
+  status      InvoiceStatus @default(DRAFT)
+  
+  // Dates
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  paidAt      DateTime?
+  
+  // Payment
+  paymentMethod String?
+  paymentId   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@map("invoices")
+}
+
+model UsageCounter {
+  id          String   @id @default(cuid())
+  tenantId    String
+  metric      String   // users, clients, tasks, storage_mb, etc.
+  value       Int
+  period      String   // YYYY-MM format
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, metric, period])
+  @@map("usage_counters")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PlanType {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum ClientType {
+  INDIVIDUAL
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  OPC
+  TRUST
+  SOCIETY
+  COOPERATIVE
+  HUF
+}
+
+enum EntityType {
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  OPC
+  TRUST
+  SOCIETY
+  COOPERATIVE
+  HUF
+  BRANCH_OFFICE
+  LIAISON_OFFICE
+  PROJECT_OFFICE
+}
+
+enum KycStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum ComplianceCategory {
+  GST
+  INCOME_TAX
+  TDS_TCS
+  ROC_MCA
+  LABOUR_LAW
+  ENVIRONMENTAL
+  FEMA
+  SEBI
+  RBI
+  CUSTOMS
+  EXCISE
+  SERVICE_TAX
+  PROFESSIONAL_TAX
+  ESI_PF
+  SHOPS_ESTABLISHMENT
+  FIRE_NOC
+  POLLUTION_CONTROL
+  OTHER
+}
+
+enum Periodicity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  ANNUALLY
+  EVENT_BASED
+  ONE_TIME
+}
+
+enum TaskType {
+  COMPLIANCE
+  FILING
+  PAYMENT
+  RENEWAL
+  REGISTRATION
+  AUDIT
+  CONSULTATION
+  FOLLOW_UP
+  OTHER
+}
+
+enum TaskStatus {
+  PLANNED
+  IN_PROGRESS
+  WAITING_CLIENT
+  REVIEW
+  FILED
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DocumentCategory {
+  KYC
+  COMPLIANCE
+  FILING
+  CORRESPONDENCE
+  INVOICE
+  RECEIPT
+  AGREEMENT
+  CERTIFICATE
+  RETURN
+  CHALLAN
+  OTHER
+}
+
+enum AccessLevel {
+  PRIVATE
+  CLIENT
+  TEAM
+  PUBLIC
+}
+
+enum NotificationType {
+  REMINDER
+  OVERDUE
+  STATUS_UPDATE
+  ASSIGNMENT
+  APPROVAL
+  SYSTEM
+  MARKETING
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  IN_APP
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
