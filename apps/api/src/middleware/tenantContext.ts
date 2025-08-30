@@ -12,6 +12,7 @@ export interface AuthenticatedRequest extends Request {
     tenantId: string;
     email: string;
     roles: string[];
+    permissions: string[];
     isAdmin: boolean;
   };
   tenant?: {
@@ -72,13 +73,22 @@ export const tenantContext = async (
       throw new AuthenticationError('Account is temporarily locked');
     }
 
+    // Get all permissions from user roles
+    const allPermissions = new Set<string>();
+    user.roles.forEach(ur => {
+      if (ur.role.permissions) {
+        ur.role.permissions.forEach(permission => allPermissions.add(permission));
+      }
+    });
+
     // Set user context
     req.user = {
       id: user.id,
       tenantId: user.tenantId,
       email: user.email,
       roles: user.roles.map(ur => ur.role.name),
-      isAdmin: user.roles.some(ur => ur.role.name === 'ADMIN' || ur.role.name === 'OWNER'),
+      permissions: Array.from(allPermissions),
+      isAdmin: user.roles.some(ur => ur.role.name === 'admin' || ur.role.name === 'OWNER'),
     };
 
     // Set tenant context

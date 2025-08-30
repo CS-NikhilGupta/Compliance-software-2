@@ -161,11 +161,22 @@ export const ROLE_PERMISSIONS = {
 };
 
 // Get user permissions based on roles
-export const getUserPermissions = (roles: string[]): string[] => {
+export const getUserPermissions = (userRoles: string[], userPermissions?: string[]): string[] => {
   const permissions = new Set<string>();
   
-  roles.forEach(role => {
-    const rolePermissions = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS];
+  // Check if user has wildcard permission
+  if (userPermissions?.includes('*')) {
+    return ['*'];
+  }
+  
+  // Add permissions from database
+  if (userPermissions) {
+    userPermissions.forEach(permission => permissions.add(permission));
+  }
+  
+  // Add permissions from predefined roles
+  userRoles.forEach(role => {
+    const rolePermissions = ROLE_PERMISSIONS[role.toUpperCase() as keyof typeof ROLE_PERMISSIONS];
     if (rolePermissions) {
       rolePermissions.forEach(permission => permissions.add(permission));
     }
@@ -175,21 +186,39 @@ export const getUserPermissions = (roles: string[]): string[] => {
 };
 
 // Check if user has permission
-export const hasPermission = (userRoles: string[], requiredPermission: string): boolean => {
-  const userPermissions = getUserPermissions(userRoles);
-  return userPermissions.includes(requiredPermission);
+export const hasPermission = (userRoles: string[], requiredPermission: string, userPermissions?: string[]): boolean => {
+  const permissions = getUserPermissions(userRoles, userPermissions);
+  
+  // Check for wildcard permission
+  if (permissions.includes('*')) {
+    return true;
+  }
+  
+  return permissions.includes(requiredPermission);
 };
 
 // Check if user has any of the required permissions
-export const hasAnyPermission = (userRoles: string[], requiredPermissions: string[]): boolean => {
-  const userPermissions = getUserPermissions(userRoles);
-  return requiredPermissions.some(permission => userPermissions.includes(permission));
+export const hasAnyPermission = (userRoles: string[], requiredPermissions: string[], userPermissions?: string[]): boolean => {
+  const permissions = getUserPermissions(userRoles, userPermissions);
+  
+  // Check for wildcard permission
+  if (permissions.includes('*')) {
+    return true;
+  }
+  
+  return requiredPermissions.some(permission => permissions.includes(permission));
 };
 
 // Check if user has all required permissions
-export const hasAllPermissions = (userRoles: string[], requiredPermissions: string[]): boolean => {
-  const userPermissions = getUserPermissions(userRoles);
-  return requiredPermissions.every(permission => userPermissions.includes(permission));
+export const hasAllPermissions = (userRoles: string[], requiredPermissions: string[], userPermissions?: string[]): boolean => {
+  const permissions = getUserPermissions(userRoles, userPermissions);
+  
+  // Check for wildcard permission
+  if (permissions.includes('*')) {
+    return true;
+  }
+  
+  return requiredPermissions.every(permission => permissions.includes(permission));
 };
 
 // Middleware to require specific permission
@@ -199,7 +228,7 @@ export const requirePermission = (permission: string) => {
       throw new AuthorizationError('Authentication required');
     }
 
-    if (!hasPermission(req.user.roles, permission)) {
+    if (!hasPermission(req.user.roles, permission, req.user.permissions)) {
       throw new AuthorizationError(`Permission required: ${permission}`);
     }
 
