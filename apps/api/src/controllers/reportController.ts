@@ -48,7 +48,7 @@ export class ReportController {
       prisma.task.count({
         where: {
           tenantId,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          status: { in: ['PLANNED', 'IN_PROGRESS'] },
         },
       }),
 
@@ -56,7 +56,7 @@ export class ReportController {
       prisma.task.count({
         where: {
           tenantId,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          status: { in: ['PLANNED', 'IN_PROGRESS'] },
           dueDate: { lt: new Date() },
         },
       }),
@@ -74,7 +74,7 @@ export class ReportController {
       prisma.task.count({
         where: {
           tenantId,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          status: { in: ['PLANNED', 'IN_PROGRESS'] },
           dueDate: {
             gte: new Date(),
             lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -91,7 +91,7 @@ export class ReportController {
       prisma.auditLog.findMany({
         where: {
           tenantId,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
         include: {
           user: {
@@ -249,7 +249,7 @@ export class ReportController {
       prisma.task.findMany({
         where: {
           ...where,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          status: { in: ['PLANNED', 'IN_PROGRESS'] },
           dueDate: { lt: new Date() },
         },
         include: {
@@ -396,7 +396,7 @@ export class ReportController {
         where: {
           tenantId,
           complianceId: { not: null },
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          status: { in: ['PLANNED', 'IN_PROGRESS'] },
           dueDate: {
             gte: new Date(),
             lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Next 30 days

@@ -24,7 +24,7 @@ export class NotificationController {
     };
 
     if (filters.type) where.type = filters.type;
-    if (typeof filters.isRead === 'boolean') where.isRead = filters.isRead;
+    // Note: Using status field instead of isRead - notifications don't have isRead field
 
     if (filters.search) {
       where.OR = [
